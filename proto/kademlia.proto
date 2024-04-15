@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package kademlia;
+
+service Kademlia {
+  rpc Ping(PingRequest) returns (PingResponse);
+}
+
+message PingRequest {}
+
+message PingResponse {
+  string message = 1;
+}
