@@ -2,11 +2,26 @@
 name = "ssd"
 version = "0.1.0"
 edition = "2021"
-build = "src/build.rs"
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 tonic = "0.11.0"
-tokio = "1.37.0"
+tokio = { version = "1.37.0", features = ["rt", "rt-multi-thread", "macros"] }
+prost = "0.12.4"
+sha256 = "1.5.0"
+digest = "0.11.0-pre.8"
+hex = "0.4.3"
+rand = { version = "0.9.0-alpha.0"}
+
+[build-dependencies]
 tonic-build = "0.11.0"
+
+[[bin]]
+name="server"
+path="src/server.rs"
+
+[[bin]]
+name="client"
+path="src/client.rs"

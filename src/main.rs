@@ -1,6 +1,7 @@
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tonic_build::configure()
-        .build_server(false) // We don't need server code
-        .compile(&["proto/kademlia.proto"], &["proto"])?;
-    Ok(())
+
+const K_SIZE: usize = 2;
+const N_BUCKETS: usize = K_SIZE*8;
+
+fn main() {
+
 }
