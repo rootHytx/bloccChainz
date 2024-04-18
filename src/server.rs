@@ -1,15 +1,18 @@
+use std::net::{SocketAddr, UdpSocket};
+use std::io;
 use tonic::{Request, Response, Status};
 use tonic::transport::Server;
 use proto::kademlia_server::{Kademlia, KademliaServer};
 use crate::proto::{PingRequest, PingResponse, ConnectRequest, ConnectResponse};
-const N_BOOTSTRAPS: i32 = 4;
 type BootstrapList = std::sync::Arc<tokio::sync::RwLock<Vec<Node>>>;
 
 mod node;
-use node::Node;
+mod constants;
 mod proto{
     tonic::include_proto!("kademlia");
 }
+use node::Node;
+use constants::*;
 #[derive(Debug, Default)]
 struct KademliaService{
     bootstraps: BootstrapList,
@@ -36,19 +39,24 @@ impl Kademlia for KademliaService {
         let response = PingResponse{ message:"OK".to_string() };
         Ok(Response::new(response))
     }
-    //noinspection ALL
     async fn connect_network(&self, request: Request<ConnectRequest>)  -> Result<Response<ConnectResponse>, Status> {
         println!("Got a request from {:?}", request.into_inner());
         let mut nodes = Vec::new();
+
         nodes.push("cona".to_string());
         nodes.push("conaça".to_string());
         let response = ConnectResponse{ nodes };
         Ok(Response::new(response))
     }
 }
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>>{
-    let addr = "[::1]:50122".parse()?;
+
+fn create_address() -> SocketAddr {
+    let destination = "127.0.0.1:0";
+    let socket = UdpSocket::bind(destination).expect("couldn't bind to address");
+    socket.local_addr().unwrap()
+}
+
+async fn create_server(addr:SocketAddr) -> Result<(), Box<dyn std::error::Error>>{
     let server = KademliaService::default();
     server.init().await;
     server.print_bootstraps().await;
@@ -57,4 +65,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
         .serve(addr)
         .await?;
     Ok(())
+}
+
+#[tokio::main]
+async fn main(){
+    let addr = create_address();
+    println!("Server Address: {:?}", addr);
+    create_server(addr).await.expect("FAILED TO CREATE SERVER");
 }

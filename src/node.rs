@@ -1,7 +1,8 @@
 use sha256::digest;
 use rand::{RngCore};
-const ID_SIZE: usize = 5;
 use std::net::UdpSocket;
+//mod constants;
+//use constants::ID_SIZE;
 
 #[derive(Debug)]
 pub struct Node{
@@ -19,5 +20,8 @@ impl Node{
         //destination.push_str(":".to_string().push_str((node.port).to_string() as str));
         let socket = UdpSocket::bind(destination).expect("couldn't bind to address");
         Node{ id: input[..ID_SIZE].to_string(), ip, port: socket.local_addr().unwrap().port() }
+    }
+    pub fn clone(original: Node) -> Node{
+        Node{ id:original.id, ip:original.ip, port:original.port }
     }
 }
