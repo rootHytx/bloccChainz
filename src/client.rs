@@ -1,15 +1,19 @@
 use std::error::Error;
+use std::fmt::format;
 use std::io;
 //use tonic::transport::Channel;
 use proto::kademlia_client::KademliaClient;
 mod node;
+use node::*;
+mod constants;
+use constants::*;
+mod routing_table;
 mod proto {
     tonic::include_proto!("kademlia");
 }
-use node::Node;
 
 fn create_url() -> String{
-    let url = "http://127.0.0.1".to_string();
+    let url = format!("http://{}", IP_ADDRESS).to_string();
     let mut port = String::new();
     println!("Input the port for the desired network:");
     io::stdin()
@@ -26,14 +30,14 @@ fn create_url() -> String{
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>>{
-    let node = Node::new("127.0.0.1".to_string());
+    let node = Node::new(IP_ADDRESS.to_string());
     let mut url = "".to_string();
     while url=="".to_string(){
         url = create_url();
     }
     println!("{}",url);
     let mut client = KademliaClient::connect(url).await?;
-    let request = tonic::Request::new(proto::ConnectRequest{ node_id : node.id, ip : node.ip, port: u32::from(node.port) });
+    let request = tonic::Request::new(proto::ConnectRequest{ node_id : node.info.id, ip : node.info.ip, port: u32::from(node.info.port), bootstrap:false });
     let response = client.connect_network(request).await?;
     println!("Response: {:?}", response.get_ref().nodes);
     Ok(())
