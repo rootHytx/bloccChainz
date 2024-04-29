@@ -1,13 +1,20 @@
+use endpoint::*;
+use util::*;
 use std::error::Error;
 use std::fmt::format;
 use std::io;
-//use tonic::transport::Channel;
-use proto::kademlia_client::KademliaClient;
-mod node;
+use core::net::SocketAddr;
+use tokio::task;
+use tonic::{Response, Status};
+use tonic::transport::{Endpoint, Server};
+use proto::network_client::NetworkClient;
 use node::*;
-mod constants;
-use constants::*;
-mod routing_table;
+use crate::proto::{NodeInfo, BucketNode, KBucket, Node, JoinResponse};
+use crate::proto::endpoint_server::EndpointServer;
+
+mod endpoint;
+mod util;
+mod node;
 mod proto {
     tonic::include_proto!("kademlia");
 }
@@ -30,15 +37,22 @@ fn create_url() -> String{
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>>{
-    let node = Node::new(IP_ADDRESS.to_string());
+    let mut service = EndpointService::default();
+    let mut node = service.setup(IP_ADDRESS.to_string(), false).await;
+    let addr: SocketAddr = format!("{}:{}", node.info.clone().unwrap().ip, node.info.clone().unwrap().port).parse().expect("UNABLE TO PARSE ADDRESS");
+    task::spawn(async move {
+        Server::builder().add_service(EndpointServer::new(EndpointService::default()))
+            .serve(addr).await.expect("FAILED TO CREATE NODE SERVER");
+    });
+    println!("NODE INFO: {}", node.clone());
     let mut url = "".to_string();
     while url=="".to_string(){
         url = create_url();
     }
     println!("{}",url);
-    let mut client = KademliaClient::connect(url).await?;
-    let request = tonic::Request::new(proto::ConnectRequest{ node_id : node.info.id, ip : node.info.ip, port: u32::from(node.info.port), bootstrap:false });
-    let response = client.connect_network(request).await?;
-    println!("Response: {:?}", response.get_ref().nodes);
+    let response = init_client(node.clone(), url).await.unwrap();
+    println!("Response: {:?}", response.get_ref().neighbours);
+    node.new_route(Node::new(IP_ADDRESS.to_string(), false).info.unwrap());
+    println!("{:?}", node.get_neighbours());
     Ok(())
 }

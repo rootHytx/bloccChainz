@@ -2,9 +2,35 @@ syntax = "proto3";
 
 package kademlia;
 
-service Kademlia {
+message NodeInfo{
+    string id = 1;
+    string ip = 2;
+    uint32 port = 3;
+    bool bootstrap = 4;
+}
+
+message BucketNode{
+    NodeInfo info = 1;
+}
+
+message KBucket{
+    repeated BucketNode nodes = 1;
+}
+
+message Node{
+    NodeInfo info = 1;
+    repeated KBucket kbuckets = 2;
+    repeated string neighbours = 3;
+}
+
+service Network {
   rpc Ping(PingRequest) returns (PingResponse);
-  rpc ConnectNetwork(ConnectRequest) returns (ConnectResponse);
+  rpc Join(JoinRequest) returns (JoinResponse);
+}
+
+service Endpoint{
+  rpc UpdateNode(UpdateRequest) returns (UpdateResponse);
+  rpc GetNeighbours(GNRequest) returns (GNResponse);
 }
 
 message PingRequest {}
@@ -13,12 +39,22 @@ message PingResponse {
   string message = 1;
 }
 
-message ConnectRequest {
-    string node_id = 1;
-    string ip = 2;
-    uint32 port = 3;
-    bool bootstrap = 4;
+message JoinRequest {
+    Node node = 1;
 }
-message ConnectResponse {
-    repeated string nodes = 1;
+message JoinResponse {
+    repeated NodeInfo neighbours = 1;
+}
+
+message UpdateRequest{
+  NodeInfo info = 1;
+}
+
+message UpdateResponse{
+    repeated NodeInfo neighbours = 1;
+}
+
+message GNRequest{}
+message GNResponse{
+    repeated NodeInfo neighbours = 1;
 }
