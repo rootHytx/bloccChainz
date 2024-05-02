@@ -33,12 +33,12 @@ service Endpoint{
   rpc GetNeighbours(GNRequest) returns (GNResponse);
 }
 
-message PingRequest {}
-
-message PingResponse {
-  string message = 1;
+message PingRequest {
+    NodeInfo node = 1;
 }
-
+message PingResponse {
+    bool response = 1;
+}
 message JoinRequest {
     Node node = 1;
 }
@@ -49,11 +49,9 @@ message JoinResponse {
 message UpdateRequest{
   NodeInfo info = 1;
 }
-
 message UpdateResponse{
     repeated NodeInfo neighbours = 1;
 }
-
 message GNRequest{}
 message GNResponse{
     repeated NodeInfo neighbours = 1;

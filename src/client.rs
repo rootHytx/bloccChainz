@@ -19,40 +19,32 @@ mod proto {
     tonic::include_proto!("kademlia");
 }
 
-fn create_url() -> String{
-    let url = format!("http://{}", IP_ADDRESS).to_string();
-    let mut port = String::new();
-    println!("Input the port for the desired network:");
-    io::stdin()
-        .read_line(&mut port)
-        .expect("Failed to read line");
-    return match port.trim().parse::<i32>() {
-        Ok(parsed_int) => format!("{}:{}", url, parsed_int),
-        Err(ref e) => {
-            println!("Failed to read port: {:?}", e);
-            String::from("")
-        },
+async fn client(mut node:Node, url:String) -> Result<(), Box<dyn Error>>{
+    println!("NODE: {}@{}", node.clone().info.unwrap().id, node.info.clone().unwrap().port);
+    let response = init_client(node.clone(), url).await.unwrap();
+    for i in response.get_ref().neighbours.clone(){
+        update_node(node.info.clone().unwrap(), i).await.expect("cona");
     }
+    Ok(())
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>>{
-    let mut service = EndpointService::default();
-    let mut node = service.setup(IP_ADDRESS.to_string(), false).await;
-    let addr: SocketAddr = format!("{}:{}", node.info.clone().unwrap().ip, node.info.clone().unwrap().port).parse().expect("UNABLE TO PARSE ADDRESS");
-    task::spawn(async move {
-        Server::builder().add_service(EndpointServer::new(EndpointService::default()))
-            .serve(addr).await.expect("FAILED TO CREATE NODE SERVER");
+async fn main(){
+    let main_task = task::spawn(async move{
+        let addr = format_address();
+        for _i in 0..20{
+            create_client(false, addr).await.expect("FAILURE INITIALIZING CLIENT");
+        }
     });
-    println!("NODE INFO: {}", node.clone());
-    let mut url = "".to_string();
-    while url=="".to_string(){
-        url = create_url();
-    }
-    println!("{}",url);
-    let response = init_client(node.clone(), url).await.unwrap();
-    println!("Response: {:?}", response.get_ref().neighbours);
-    node.new_route(Node::new(IP_ADDRESS.to_string(), false).info.unwrap());
-    println!("{:?}", node.get_neighbours());
-    Ok(())
+    let other_task = task::spawn(async move{
+        //println!("AAAAAAAAAAAAAAAAAAAAAAAAAA");
+        //let mut query = String::new();
+        loop {
+           /*io::stdin()
+               .read_line(&mut query)
+               .expect("Failed to read line");
+           println!("{}", query);*/
+        }
+    });
+    tokio::try_join!(main_task, other_task);
 }

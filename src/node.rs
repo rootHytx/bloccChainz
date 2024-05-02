@@ -62,9 +62,20 @@ impl KBucket{
     }
     pub fn get_node(&self, distance:i32) -> Option<NodeInfo>{
         if let Some(cur ) = self.nodes.get((distance - 2_i32.pow(distance.ilog2() as u32)) as usize){
-            return Option::from(cur.info.clone().unwrap())
+            if let Some(info) = cur.info.clone(){
+                return Option::from(info)
+            }
         }
         return None
+    }
+    pub fn get_quantity(&self) -> i32{
+        let mut res=0;
+        for i in self.nodes.to_vec(){
+            if i.info!=None{
+                res+=1;
+            }
+        }
+        res
     }
 }
 
@@ -93,18 +104,21 @@ impl Node{
         Node{ info: Option::from(self.info.clone()), kbuckets: self.kbuckets.clone(), neighbours:self.neighbours.clone()}
     }
 
-    pub fn new_route(&mut self, new: NodeInfo){
+    pub fn new_route(&mut self, new: NodeInfo) -> bool{
         let distance = self.info.clone().unwrap().distance(new.clone());
+        let quantity = self.get_quantity();
         if let Some(bucket) = self.kbuckets.get_mut(distance.ilog2() as usize) {
-            if !bucket.contains(distance){
+            println!("BOOTSTRAP: {}\t QUANTITY: {}", self.info.clone().unwrap().bootstrap, quantity.get(distance.ilog2() as usize).unwrap());
+            if !bucket.contains(distance) && (self.info.clone().unwrap().bootstrap || quantity.get(distance.ilog2() as usize).unwrap()<&(K_SIZE as i32)){
                 bucket.insert(new.clone(), distance);
                 self.neighbours.push(new.clone().id);
+                return true;
             }
         }
+        false
     }
     pub fn get_neighbour(&self, other:String) -> Option<NodeInfo>{
         let distance = i32::from_str_radix(self.info.clone().unwrap().id.as_str(), 16).unwrap() ^ i32::from_str_radix(other.as_str(), 16).unwrap();
-        println!("DISTANCE: {}", distance);
         if let Some(cur) = self.kbuckets.get(distance.ilog2() as usize).unwrap().clone().get_node(distance){
             return Option::from(cur.clone())
         }
@@ -141,6 +155,13 @@ impl Node{
             return res
         }
         Vec::new()
+    }
+    pub fn get_quantity(&self) ->Vec<i32>{
+        let mut res = Vec::new();
+        for i in self.kbuckets.clone(){
+            res.push(i.get_quantity());
+        }
+        res
     }
 }
 

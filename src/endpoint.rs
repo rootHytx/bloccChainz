@@ -23,12 +23,19 @@ impl EndpointService{
 impl Endpoint for EndpointService{
     async fn update_node(&self, request: Request<UpdateRequest>) -> Result<Response<UpdateResponse>, Status> {
         let mut neighbours = Vec::new();
-        if request.get_ref().info.clone().unwrap().bootstrap{ neighbours = self.node.read().await.get_neighbours(); }
-        else { neighbours = self.node.read().await.get_closest_nodes(request.get_ref().info.clone().unwrap()); }
-        self.insert(request.get_ref().clone().info.unwrap()).await;
+        if let Some(req) = request.get_ref().info.clone() {
+            let mut own = self.node.write().await;
+            if let Some(info) = own.info.clone(){
+                if req.bootstrap{neighbours = own.get_neighbours();}
+                else if info.bootstrap {neighbours = own.get_closest_nodes(req.clone());};
+                own.new_route(req.clone());
+                let buckets = own.get_quantity();
+                println!("NODE {} BUCKETS: {:?}", info.id, buckets);
+            }
+        }
         Ok(Response::new(UpdateResponse{ neighbours }))
     }
     async fn get_neighbours(&self, request: Request<GnRequest>) ->Result<Response<GnResponse>, Status>{
-        Ok(Response::new(GnResponse{ neighbours:Vec::new() }))
+        Ok(Response::new(GnResponse{ neighbours:self.node.read().await.get_neighbours() }))
     }
 }
