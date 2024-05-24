@@ -6,53 +6,138 @@ message NodeInfo{
     string id = 1;
     string ip = 2;
     uint32 port = 3;
-    bool bootstrap = 4;
+    bytes pkey = 4;
+    bool bootstrap = 5;
+    bool miner = 6;
 }
 
 message BucketNode{
-    NodeInfo info = 1;
+    uint32 position = 1;
+    NodeInfo info = 2;
 }
 
 message KBucket{
     repeated BucketNode nodes = 1;
 }
 
-message Node{
-    NodeInfo info = 1;
-    repeated KBucket kbuckets = 2;
-    repeated string neighbours = 3;
+message Neighbour{
+    string neighbour = 1;
+    uint32 time = 2;
 }
 
-service Network {
-  rpc Ping(PingRequest) returns (PingResponse);
-  rpc Join(JoinRequest) returns (JoinResponse);
+message Node{
+    NodeInfo info = 1;
+    bytes skey = 2;
+    repeated KBucket kbuckets = 4;
+    repeated string neighbours = 5;
+    repeated bytes blockchain = 6;
+}
+
+message Signature{
+    bytes hash = 1;
+    bytes pkey = 2;
 }
 
 service Endpoint{
+  rpc Join(JoinRequest) returns (JoinResponse);
+  rpc FindNode(FindNodeRequest) returns (FindNodeResponse);
   rpc UpdateNode(UpdateRequest) returns (UpdateResponse);
-  rpc GetNeighbours(GNRequest) returns (GNResponse);
+  rpc GetNeighbours(NeighboursRequest) returns (NeighboursResponse);
+  rpc RemoveNode(RemoveRequest) returns (RemoveResponse);
+  rpc Transaction(TransactionRequest) returns (TransactionResponse);
+  rpc RetrieveBlockchain(RetrieveBlockchainRequest) returns (RetrieveBlockchainResponse);
+  rpc Generate(GenerateRequest) returns (GenerateResponse);
+  rpc AddTransaction(AddTransactionRequest) returns (AddTransactionResponse);
 }
 
-message PingRequest {
-    NodeInfo node = 1;
-}
-message PingResponse {
-    bool response = 1;
-}
 message JoinRequest {
     Node node = 1;
+    Signature sign = 2;
 }
 message JoinResponse {
     repeated NodeInfo neighbours = 1;
+    repeated bytes blockchain = 2;
+    Signature sign = 3;
 }
-
+message PingRequest {
+    NodeInfo node = 1;
+    Signature sign = 2;
+}
+message PingResponse {
+    bool response = 1;
+    Signature sign = 2;
+}
+message FindNodeRequest{
+    string target = 1;
+    Signature sign = 2;
+}
+message FindNodeResponse{
+    NodeInfo node = 1;
+    Signature sign = 2;
+}
 message UpdateRequest{
-  NodeInfo info = 1;
+  repeated NodeInfo neighbours = 1;
+    Signature sign = 2;
 }
 message UpdateResponse{
-    repeated NodeInfo neighbours = 1;
+    bool response = 1;
+    Signature sign = 2;
 }
-message GNRequest{}
-message GNResponse{
+message NeighboursRequest{
+    string source_id = 1;
+    Signature sign = 2;
+}
+message NeighboursResponse{
     repeated NodeInfo neighbours = 1;
+    Signature sign = 2;
+}
+message RemoveRequest{
+    NodeInfo node = 1;
+    Signature sign = 2;
+}
+message RemoveResponse{
+    bool success = 1;
+    Signature sign = 2;
+}
+message TransactionRequest{
+    uint32 value = 1;
+    Signature sign = 2;
+}
+message TransactionResponse{
+    string state = 1;
+    Signature sign = 2;
+}
+message RetrieveBlockchainRequest{
+    string source_id = 1;
+    Signature sign = 2;
+}
+message RetrieveBlockchainResponse{
+    repeated Block blockchain = 1;
+    Signature sign = 2;
+}
+
+message Block{
+    bytes prev_hash = 1;
+    uint32 nonce = 2;
+    bytes merkle_root =3;
+}
+message GenerateRequest{
+    string source_id = 1;
+    repeated Block blockchain = 2;
+    repeated string transactions = 3;
+    Signature sign = 4;
+}
+message GenerateResponse{
+    string source_id = 1;
+    Block new = 2;
+    Signature sign = 3;
+}
+message AddTransactionRequest{
+    uint32 value = 1;
+    Block block = 2;
+    Signature sign = 3;
+}
+message AddTransactionResponse{
+    string state = 1;
+    Signature sign = 2;
 }
