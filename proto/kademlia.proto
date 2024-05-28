@@ -37,6 +37,17 @@ message Signature{
     bytes hash = 1;
     bytes pkey = 2;
 }
+message Block{
+    bytes prev_hash = 1;
+    uint32 nonce = 2;
+    bytes merkle_root =3;
+}
+message Bid{
+    bytes name = 1;
+    string highest_bidder = 2;
+    uint32 value = 3;
+    repeated string participants = 4;
+}
 
 service Endpoint{
   rpc Join(JoinRequest) returns (JoinResponse);
@@ -45,9 +56,11 @@ service Endpoint{
   rpc GetNeighbours(NeighboursRequest) returns (NeighboursResponse);
   rpc RemoveNode(RemoveRequest) returns (RemoveResponse);
   rpc Transaction(TransactionRequest) returns (TransactionResponse);
+  rpc ObtainTransactions(ObtainTransactionsRequest) returns (ObtainTransactionsResponse);
   rpc RetrieveBlockchain(RetrieveBlockchainRequest) returns (RetrieveBlockchainResponse);
-  rpc Generate(GenerateRequest) returns (GenerateResponse);
-  rpc AddTransaction(AddTransactionRequest) returns (AddTransactionResponse);
+  rpc UpdateBlockchain(UpdateBlockchainRequest) returns (UpdateBlockchainResponse);
+  rpc CreateBid(CreateBidRequest) returns (CreateBidResponse);
+  rpc BidValue(BidValueRequest) returns (BidValueResponse);
 }
 
 message JoinRequest {
@@ -68,76 +81,120 @@ message PingResponse {
     Signature sign = 2;
 }
 message FindNodeRequest{
-    string target = 1;
-    Signature sign = 2;
+    string source_id = 1;
+    string target = 2;
+    Signature sign = 3;
 }
 message FindNodeResponse{
-    NodeInfo node = 1;
-    Signature sign = 2;
+    string source_id = 1;
+    NodeInfo node = 2;
+    Signature sign = 3;
 }
 message UpdateRequest{
-  repeated NodeInfo neighbours = 1;
-    Signature sign = 2;
+    string source_id = 1;
+    repeated NodeInfo neighbours = 2;
+    Signature sign = 3;
 }
 message UpdateResponse{
-    bool response = 1;
-    Signature sign = 2;
+    string source_id = 1;
+    bool response = 2;
+    Signature sign = 3;
 }
 message NeighboursRequest{
     string source_id = 1;
     Signature sign = 2;
 }
 message NeighboursResponse{
-    repeated NodeInfo neighbours = 1;
-    Signature sign = 2;
+    string source_id = 1;
+    repeated NodeInfo neighbours = 2;
+    Signature sign = 3;
 }
 message RemoveRequest{
-    NodeInfo node = 1;
-    Signature sign = 2;
+    string source_id = 1;
+    NodeInfo node = 2;
+    Signature sign = 3;
 }
 message RemoveResponse{
-    bool success = 1;
-    Signature sign = 2;
+    string source_id = 1;
+    bool success = 2;
+    Signature sign = 3;
 }
 message TransactionRequest{
-    uint32 value = 1;
-    Signature sign = 2;
+    string source_id = 1;
+    string sender = 2;
+    uint32 value = 3;
+    string destination = 4;
+    Signature sign = 5;
 }
 message TransactionResponse{
-    string state = 1;
-    Signature sign = 2;
+    string source_id = 1;
+    string state = 2;
+    Signature sign = 3;
 }
 message RetrieveBlockchainRequest{
     string source_id = 1;
     Signature sign = 2;
 }
 message RetrieveBlockchainResponse{
-    repeated Block blockchain = 1;
-    Signature sign = 2;
-}
-
-message Block{
-    bytes prev_hash = 1;
-    uint32 nonce = 2;
-    bytes merkle_root =3;
-}
-message GenerateRequest{
     string source_id = 1;
     repeated Block blockchain = 2;
-    repeated string transactions = 3;
-    Signature sign = 4;
+    Signature sign = 3;
 }
-message GenerateResponse{
+message UpdateBlockchainRequest{
     string source_id = 1;
     Block new = 2;
     Signature sign = 3;
 }
-message AddTransactionRequest{
-    uint32 value = 1;
-    Block block = 2;
+message UpdateBlockchainResponse{
+    string source_id = 1;
+    Signature sign = 2;
+}
+message ObtainTransactionsRequest{
+    string source_id = 1;
+    Signature sign = 2;
+}
+message ObtainTransactionsResponse{
+    string source_id = 1;
+    repeated string transactions = 2;
     Signature sign = 3;
 }
-message AddTransactionResponse{
-    string state = 1;
+message CreateBidRequest{
+    string source_id = 1;
+    Signature sign = 2;
+}
+message CreateBidResponse{
+    string source_id = 1;
+    string bid_name = 2;
+    Signature sign = 3;
+}
+message BidValueRequest{
+    string source_id = 1;
+    uint32 value = 2;
+    Signature sign = 3;
+}
+message BidValueResponse{
+    string source_id = 1;
+    bool success = 2;
+    Signature sign = 3;
+}
+service Miner{
+    rpc Mine(MineRequest) returns (MineResponse);
+    rpc Abort(AbortRequest) returns (AbortResponse);
+}
+message MineRequest{
+    string source_id = 1;
+    Block previous = 2;
+    repeated string transactions = 3;
+}
+message MineResponse{
+    string source_id = 1;
+    Block new = 2;
+}
+message AbortRequest{
+    string source_id = 1;
+    Signature sign = 2;
+}
+message AbortResponse{
+    string source_id = 1;
     Signature sign = 2;
 }

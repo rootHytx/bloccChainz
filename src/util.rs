@@ -1,13 +1,9 @@
-use std::net::{Ipv4Addr, SocketAddr};
-use std::time::{Duration};
-use tokio::task;
-use tonic::{Status};
-use tonic::transport::Server;
-use crate::endpoint::EndpointService;
-use crate::proto::*;
-use crate::requests::*;
-use openssl::pkey::PKey;
+use std::error::Error;
+use std::io;
+use std::net::{SocketAddr};
 use openssl::rsa::Rsa;
+use tokio::net::TcpSocket;
+use crate::proto::NodeInfo;
 
 pub const ID_SIZE: usize = 10; //Size of the NODE_ID (truncate hash output, see node.rs)
 pub const N_BUCKETS: usize = ID_SIZE * 4; //For each bit of the NODE_ID, add one bucket (if ID_SIZE is in bytes, bytes*8 = bits)
@@ -24,6 +20,18 @@ pub fn format_url(ip:String, port:String) -> String{
 pub fn format_addr(ip:String, port:String) -> SocketAddr{
     format!("{}:{}", ip, port).parse().unwrap()
 }
+pub fn parse_input() -> i32{
+    let mut t = String::new();
+    loop{
+        io::stdin()
+            .read_line(&mut t)
+            .expect("Failed to read line");
+        match t.trim().parse::<i32>() {
+            Ok(nr) => return nr,
+            Err(ref e) => println!("ERROR PARSING INTEGER {}", e),
+        }
+    };
+}
 pub fn new_key() -> (Vec<u8>, Vec<u8>){
     let keypair = Rsa::generate(1024).unwrap();
     (keypair.private_key_to_pem().unwrap(), keypair.public_key_to_pem().unwrap())
@@ -37,73 +45,33 @@ pub async fn known_bootstrap_addresses() -> Vec<String>{
     res
 }
 
-pub async fn init_client(node: Node) ->  Result<bool, Status>{
-    if node.info.clone().unwrap().bootstrap && node.info.clone().unwrap().port== BOOTSTRAP_PORTS.get(0).unwrap().parse::<u32>().unwrap(){
-        return Ok(true)
-    }
-    let neighbours = join_request(node.clone()).await;
-    if neighbours.len()==0{return Ok(false)};
-    for i in neighbours.clone(){
-        let mut send=Vec::new();
-        send.push(node.info.clone().unwrap());
-        update_request(node.clone(), send, format_url(i.ip, i.port.to_string())).await;
-    }
-    update_request(node.clone(), neighbours.clone(), format_url(node.info.clone().unwrap().ip, node.info.clone().unwrap().port.to_string())).await;
-    Ok(true)
-}
-
-/*pub async fn remove_node(node: NodeInfo, url: String){
-    let neighbours = neighbours_request(node.id.clone(), url.clone()).await;
-    for i in neighbours{
-        let url = format_url(i.clone().ip, i.clone().port.to_string());
-        remove_request(node.clone(), url).await;
-    }
-}*/
-
-pub async fn serve_client(service: EndpointService,addr: SocketAddr) -> Result<bool, Box<dyn std::error::Error>>{
-    //println!("{}", format_url(addr.ip().to_string(), addr.port().to_string()));
-    let msg= format!("FAILURE INITIALIZING NODE SERVER: {}", addr.clone());
-    Server::builder()
-        .add_service(crate::EndpointServer::new(service))
-        .serve(addr.clone()).await.expect(msg.as_str());
-    Ok(true)
-}
-pub async fn refresh(node:Node){
-    tokio::time::sleep(Duration::new(REFRESH_PERIOD as u64, 0)).await;
-    let url = format_url(node.info.clone().unwrap().ip, node.info.clone().unwrap().port.to_string());
-    let neighbours = neighbours_request(node.clone(), url.clone()).await;
-    let mut res = 0;
-    for i in neighbours.clone(){
-        let receiver_url = format_url(i.ip.clone(), i.port.clone().to_string());
-        if !ping_request(receiver_url).await{
-            println!("NODE {} IS DOWN, REMOVING...", i.id.clone());
-            remove_request(node.clone(), i.clone(), url.clone()).await;
+pub fn bind(destination:String) -> Result<Option<TcpSocket>, Box<dyn Error>>{
+        let socket = TcpSocket::new_v4();
+        if socket.is_ok(){
+            let res=socket.unwrap();
+            res.set_reuseaddr(true).unwrap(); // allow to reuse the addr both for connect and listen
+            res.set_reuseport(true).unwrap(); // same for the port
+            res.bind(destination.parse().unwrap()).unwrap();
+            return Ok(Option::from(res))
         }
-        else { res+=1 }
-        //else { if res=="".to_string(){res = format!("{}@{}",i.id, i.port)}else{res = format!("{}, {}@{}", res, i.id, i.port)} };
+        Ok(None)
     }
-    println!("NODE {}@{} ACTIVE NEIGHBOURS: {}", node.info.clone().unwrap().id, node.info.clone().unwrap().port, res);
+
+pub fn join_request_consensus(responses:Vec<Vec<NodeInfo>>) -> Vec<NodeInfo>{
+    let mut seen = responses.clone();
+    let mut most_votes:Vec<NodeInfo> = vec![];
+    let mut nr_votes = 0;
+    for i in responses{
+      if seen.contains(&i.clone()){
+          let n = seen.iter().filter(|&k| *k == i.clone()).count();
+          if n>nr_votes{
+              most_votes=i.clone();
+              nr_votes=n;
+          }
+          seen.retain(|k| *k != i.clone());
+      };
+    };
+    //println!("MOST: {:?}", most_votes.clone());
+    most_votes
 }
 
-pub async fn create_client(port:Option<u32>, miner:bool) -> Result<Option<Node>, Box<dyn std::error::Error>>{
-    let mut service = EndpointService::default();
-    let node;
-    let addr= get_ip_address().await;
-    if port!=None{ node = service.setup_client(addr, port, false).await }
-    else{ node = service.setup_client(addr, None, miner).await; };
-    //println!("CREATING NODE: {}@{}", node.info.clone().unwrap().id, node.info.clone().unwrap().port);
-    let server_node = node.clone();
-    task::spawn(async move{
-        let addr:SocketAddr = format_addr(server_node.info.clone().unwrap().ip, server_node.info.clone().unwrap().port.to_string());
-        println!("ADDRESS: {}", addr.clone());
-        serve_client(service, addr).await.expect("FAILURE SPAWNING CLIENT SERVER");
-    });
-    if port!=None{
-        let time_node=node.clone();
-        task::spawn(async move{
-            loop{refresh(time_node.clone()).await;}
-        });
-    };
-    init_client(node.clone()).await.expect("FAILURE INITIALIZING CLIENT");
-    Ok(Option::from(node.clone()))
-}

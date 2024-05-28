@@ -12,11 +12,13 @@ use tokio::signal;
 use tonic::{Response, Status};
 use tonic::transport::{Endpoint, Server};
 use node::*;
+use proto::miner_server::*;
 use crate::proto::{NodeInfo, BucketNode, KBucket, Node, JoinResponse};
 use crate::proto::endpoint_server::EndpointServer;
 use crate::signatures::*;
 use tokio_util::sync::CancellationToken;
 use blockchain::*;
+use nodes_init::*;
 mod endpoint;
 mod util;
 mod node;
@@ -26,20 +28,20 @@ mod proto {
 mod blockchain;
 mod requests;
 mod signatures;
+mod nodes_init;
 fn entry(n:i32) -> String{
-    let mut number = String::new();
     loop{
+        let mut number = String::new();
         if n==0{println!("Create how many miner nodes? ")}
         else{println!("Create how many client nodes? ")}
         io::stdin()
             .read_line(&mut number)
             .expect("Failed to read line");
         match number.trim().parse::<i32>() {
-            Ok(nr) => break,
+            Ok(_) => return number,
             Err(ref e) => println!("ERROR PARSING INTEGER {}", e),
         }
     };
-    number
 }
 
 #[tokio::main]
@@ -54,16 +56,12 @@ async fn main(){
         }
         _ = tokio::time::sleep(Duration::from_secs(0)) => {tokio::spawn(async move{
             let mut res= Vec::new();
+            for i in 0..miner_number.trim().parse::<i32>().unwrap(){
+                res.push(create_client(None, true).await.expect("FAILURE INITIALIZING CLIENT"));
+            };
             for i in 0..client_number.trim().parse::<i32>().unwrap(){
                 res.push(create_client(None, false).await.expect("FAILURE INITIALIZING CLIENT"));
             };
-            let finder=res.get(rand::thread_rng().gen_range(0..res.len())).unwrap().clone().unwrap();
-            let tofind = res.get(rand::thread_rng().gen_range(0..res.len())).unwrap().clone().unwrap();
-            let req = find_node(finder.clone(), tofind.info.clone().unwrap().id, format_url(finder.info.clone().unwrap().ip, finder.info.clone().unwrap().port.to_string())).await;
-            println!("{} FOUND {:?}",finder.info.clone().unwrap().id, req.unwrap());
-            for i in res{
-                println!("{}", neighbours_request(i.clone().unwrap(), format_url(i.clone().unwrap().info.unwrap().ip, i.clone().unwrap().info.unwrap().port.to_string())).await.len())
-            }
         });}
     }
     let test = tokio::spawn(async move {

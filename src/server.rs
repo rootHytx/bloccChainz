@@ -1,9 +1,11 @@
 use std::time::Duration;
 use proto::endpoint_server::*;
+use proto::miner_server::*;
 use util::*;
 use requests::*;
 use crate::signatures::*;
 use blockchain::*;
+use nodes_init::*;
 
 mod endpoint;
 mod util;
@@ -14,11 +16,12 @@ mod node;
 mod requests;
 mod signatures;
 mod blockchain;
+mod nodes_init;
 
 async fn generate_bootstraps() -> Result<(), Box<dyn std::error::Error>>{
-    create_client(Option::from(BOOTSTRAP_PORTS.get(0).unwrap().to_string().parse::<u32>().unwrap()), false).await.expect("FAILURE INITIALIZING BOOTSTRAP");
-    tokio::time::sleep(Duration::new(0, 1000)).await;
     let mut boots= Vec::new();
+    boots.push(create_client(Option::from(BOOTSTRAP_PORTS.get(0).unwrap().to_string().parse::<u32>().unwrap()), false).await.expect("FAILURE INITIALIZING BOOTSTRAP"));
+    tokio::time::sleep(Duration::new(0, 1000)).await;
     for mut i in 1..BOOTSTRAP_PORTS.len() {
         let port = BOOTSTRAP_PORTS.get(i).unwrap().to_string().parse::<u32>().unwrap();
         boots.push(create_client(Option::from(port.clone()), false).await.expect("FAILURE INITIALIZING BOOTSTRAP"));

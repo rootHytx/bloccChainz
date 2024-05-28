@@ -26,4 +26,8 @@ path="src/server.rs"
 
 [[bin]]
 name="client"
-path="src/client.rs"
+path= "src/auto_client.rs"
+
+[[bin]]
+name="single_client"
+path= "src/single_client.rs"

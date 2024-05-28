@@ -82,17 +82,6 @@ impl Node{
     pub fn distance(one:String, two:String) -> i64{
         i64::from_str_radix(one.as_str(), 16).unwrap() ^ i64::from_str_radix(two.as_str(), 16).unwrap()
     }
-    pub fn bind(destination:String) -> Result<Option<TcpSocket>, Box<dyn Error>>{
-        let socket = TcpSocket::new_v4();
-        if socket.is_ok(){
-            let res=socket.unwrap();
-            res.set_reuseaddr(true).unwrap(); // allow to reuse the addr both for connect and listen
-            res.set_reuseport(true).unwrap(); // same for the port
-            res.bind(destination.parse().unwrap()).unwrap();
-            return Ok(Option::from(res))
-        }
-        Ok(None)
-    }
     pub fn new(ip: String, port:Option<u32>, miner:bool) -> Self{
         let mut input = [0u8; 8];
         rand::thread_rng().fill_bytes(&mut input);
@@ -101,7 +90,7 @@ impl Node{
         let bootstrap;
         if port.clone()!=None{ destination=format!("{}:{}", ip, port.unwrap());bootstrap=true }
         else{ destination=format!("{}:0", ip);bootstrap=false };
-        let socket = Self::bind(destination).unwrap().expect("FAILURE BINDING SOCKET");
+        let socket = bind(destination).unwrap().expect("FAILURE BINDING SOCKET");
         let (skey, pkey) = new_key();
         let info = NodeInfo{ id: input[..ID_SIZE].to_string(), ip, port: socket.local_addr().unwrap().port() as u32, pkey, bootstrap, miner};
         let routes = Self::init_routes();
@@ -125,8 +114,11 @@ impl Node{
     }
     pub fn get_neighbour(&self, other:String) -> Option<NodeInfo>{
         let distance = Self::distance(self.info.clone().unwrap().id, other);
-        if let Some(cur) = self.kbuckets.get(distance.ilog2() as usize).unwrap().clone().get_node(distance){
-            return Option::from(cur.clone())
+        if distance==0{return None}
+        else{
+            if let Some(cur) = self.kbuckets.get(distance.ilog2() as usize).unwrap().clone().get_node(distance){
+                return Option::from(cur.clone())
+            }
         }
         return None
     }
@@ -141,6 +133,7 @@ impl Node{
     }
     pub fn get_bucket(&self, node:String) -> Vec<NodeInfo>{
         let distance = Self::distance(self.info.clone().unwrap().id, node);
+        if distance==0{return Vec::new()}
         let mut res= Vec::new();
         for i in self.kbuckets.get(distance.ilog2() as usize).unwrap().clone().nodes{
             res.push(i.info.unwrap());
